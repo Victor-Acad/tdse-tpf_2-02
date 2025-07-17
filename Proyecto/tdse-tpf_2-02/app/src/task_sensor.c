@@ -61,7 +61,7 @@
 
 /********************** internal data declaration ****************************/
 const task_sensor_cfg_t task_sensor_cfg_list[] = {
-	{ID_BTN_A,  BTN_A_PORT,  BTN_A_PIN,  BTN_A_PRESSED, DEL_BTN_XX_MAX,
+	{ID_BTN,  BTN_1_PORT,  BTN_1_PIN,  BTN_1_PRESSED, DEL_BTN_XX_MAX,
 	 EV_SYS_XX_IDLE,  EV_SYS_XX_ACTIVE}
 };
 

@@ -44,6 +44,9 @@
 #include "logger.h"
 #include "dwt.h"
 
+/* External module includes. */
+#include "i2c_lcd.h"
+
 /* Application & Tasks includes. */
 #include "board.h"
 #include "app.h"
@@ -76,6 +79,8 @@ const char *p_task_system_ 		= "Non-Blocking & Update By Time Code";
 uint32_t g_task_system_cnt;
 volatile uint32_t g_task_system_tick_cnt;
 
+I2C_LCD_HandleTypeDef lcd1;
+
 /********************** external functions definition ************************/
 void task_system_init(void *parameters)
 {
@@ -107,6 +112,11 @@ void task_system_init(void *parameters)
 
 	b_event = p_task_system_dta->flag;
 	LOGGER_LOG("   %s = %s\r\n", GET_NAME(b_event), (b_event ? "true" : "false"));
+
+	/* Init LCD Screen */
+	lcd1.hi2c = &hi2c1;
+	lcd1.address = 0x4E;
+	lcd_init(&lcd1);
 
 	g_task_system_tick_cnt = G_TASK_SYS_TICK_CNT_INI;
 }
@@ -159,7 +169,7 @@ void task_system_update(void *parameters)
 				if ((true == p_task_system_dta->flag) && (EV_SYS_XX_ACTIVE == p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
-					put_event_task_actuator(EV_LED_XX_ON, ID_LED_A);
+					put_event_task_actuator(EV_ACT_XX_ON, ID_LED_1);
 					p_task_system_dta->state = ST_SYS_XX_ACTIVE;
 				}
 
@@ -170,7 +180,7 @@ void task_system_update(void *parameters)
 				if ((true == p_task_system_dta->flag) && (EV_SYS_XX_IDLE == p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
-					put_event_task_actuator(EV_LED_XX_OFF, ID_LED_A);
+					put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_1);
 					p_task_system_dta->state = ST_SYS_XX_IDLE;
 				}
 
