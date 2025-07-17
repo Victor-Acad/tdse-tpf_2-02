@@ -51,5 +51,8 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-/Debug/
-/*.launch
+/Proyecto/tdse-tpf_2-02/Debug/
+/Proyecto/tdse-tpf_2-02/*.launch
+
+# Metadata folder
+/Proyecto/.metadata/
