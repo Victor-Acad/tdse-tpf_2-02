@@ -1,3 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">&#x0A;<refactoring comment="Rename resource &apos;tdse-tp2_01-model_integration&apos; to &apos;tdse-tpf_2-02&apos;" description="Rename resource &apos;tdse-tp2_01-model_integration&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="/tdse-tp2_01-model_integration" name="tdse-tpf_2-02" stamp="1751560204222" updateReferences="true"/>&#x0A;<refactoring comment="Delete resource &apos;dummy&apos;" deleteContents="true" description="Delete resource &apos;dummy&apos;" element1="/dummy" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1751560326247"/>
-</session>
