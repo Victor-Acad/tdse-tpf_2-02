@@ -70,11 +70,11 @@ void lcd_clear(I2C_LCD_HandleTypeDef *lcd)
 /**
  * @brief  Moves the cursor to a specific position on the LCD.
  * @param  lcd: Pointer to the LCD handle
- * @param  col: Column number (0-15)
- * @param  row: Row number (0 or 1)
+ * @param  row: Column number (0-19)
+ * @param  col: Row number (0-3)
  * @retval None
  */
-void lcd_gotoxy(I2C_LCD_HandleTypeDef *lcd, int col, int row)
+void lcd_pos(I2C_LCD_HandleTypeDef *lcd, int row, int col)
 {
     uint8_t address;
 

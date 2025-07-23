@@ -44,6 +44,7 @@ extern "C" {
 #endif
 
 /********************** inclusions *******************************************/
+#include "i2c_lcd.h"
 
 /********************** macros ***********************************************/
 
@@ -53,6 +54,10 @@ extern "C" {
 
 /********************** external functions declaration ***********************/
 extern void put_event_task_actuator(task_actuator_ev_t event, task_actuator_id_t identifier);
+extern void buffer_push_char(char buffer[], uint8_t* idx, char c);
+extern void buffer_pull_char(char buffer[], uint8_t* idx);
+extern void buffer_reset(char buffer[], uint8_t* idx);
+extern void buffer_to_lcd(I2C_LCD_HandleTypeDef *lcd, char buffer[]);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus

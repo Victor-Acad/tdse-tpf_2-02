@@ -44,6 +44,9 @@
 #include "logger.h"
 #include "dwt.h"
 
+/* External module includes. */
+#include "i2c_lcd.h"
+
 /* Application & Tasks includes. */
 #include "board.h"
 #include "app.h"
@@ -68,6 +71,46 @@ void put_event_task_actuator(task_actuator_ev_t event, task_actuator_id_t identi
 
 	p_task_actuator_dta->event = event;
 	p_task_actuator_dta->flag = true;
+}
+
+// Pushes a char to the buffer.
+void buffer_push_char(char buffer[], uint8_t* idx, char c)
+{
+	if (*idx < 5)
+	{
+		buffer[*idx] = c;
+		(*idx)++;
+	}
+}
+
+// "Pulls" a char from the buffer.
+void buffer_pull_char(char buffer[], uint8_t* idx)
+{
+	if (*idx > 0)
+	{
+		(*idx)--;
+		buffer[*idx] = 'x';
+	}
+}
+
+// Resets the buffer state.
+void buffer_reset(char buffer[], uint8_t* idx)
+{
+	memset(buffer, 'x', 5);
+	*idx = 0;
+}
+
+// Prints the buffer content into the LCD screen.
+void buffer_to_lcd(I2C_LCD_HandleTypeDef *lcd, char buffer[])
+{
+	for(int i=0; i < 5; i++)
+	{
+		if (buffer[i] != 'x')
+		{
+			lcd_putchar(lcd, buffer[i]);
+		}
+		else lcd_putchar(lcd, ' ');
+	}
 }
 
 /********************** end of file ******************************************/

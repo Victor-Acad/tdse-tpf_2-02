@@ -7,7 +7,7 @@ const char keys[4][4] = {{'1','2','3','A'},
                          {'7','8','9','C'},
                          {'*','0','#','D'}};
 
-char Keypad_Get_Char(void)
+char keypad_get_char(void)
 {
 	val_key = 0;
 
