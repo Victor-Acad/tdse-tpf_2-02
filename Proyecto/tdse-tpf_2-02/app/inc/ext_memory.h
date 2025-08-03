@@ -16,7 +16,12 @@ extern "C" {
 
 /********************** data types *******************************************/
 typedef struct {
-	char password[5];
+	char mem_status[8];
+	bool system_status;
+	bool alarm_status;
+	char password[6];
+	bool ldr_mode;
+	uint8_t ldr_adj;
 } memory_t;
 
 /********************** external data declaration ****************************/

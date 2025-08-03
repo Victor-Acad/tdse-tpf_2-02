@@ -37,7 +37,9 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 extern I2C_HandleTypeDef hi2c1;
+extern I2C_HandleTypeDef hi2c2;
 extern TIM_HandleTypeDef htim1;
+extern ADC_HandleTypeDef hadc1;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -80,6 +82,16 @@ void Error_Handler(void);
 #define LED2_GPIO_Port GPIOB
 #define BUZ_Pin GPIO_PIN_2
 #define BUZ_GPIO_Port GPIOB
+#define MFRC522_CS_Pin GPIO_PIN_12
+#define MFRC522_CS_GPIO_Port GPIOB
+#define MFRC522_SCK_Pin GPIO_PIN_13
+#define MFRC522_SCK_GPIO_Port GPIOB
+#define MFRC522_MOSI_Pin GPIO_PIN_14
+#define MFRC522_MOSI_GPIO_Port GPIOB
+#define MFRC522_MISO_Pin GPIO_PIN_15
+#define MFRC522_MISO_GPIO_Port GPIOB
+#define MFRC522_RST_Pin GPIO_PIN_6
+#define MFRC522_RST_GPIO_Port GPIOC
 #define C1_Pin GPIO_PIN_10
 #define C1_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13

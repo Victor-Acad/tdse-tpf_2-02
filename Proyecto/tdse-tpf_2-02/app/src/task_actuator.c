@@ -180,6 +180,10 @@ void task_actuator_update(void *parameters)
 						p_task_actuator_dta->flag = false;
 						HAL_GPIO_WritePin(p_task_actuator_cfg->gpio_port, p_task_actuator_cfg->pin, p_task_actuator_cfg->act_on);
 						p_task_actuator_dta->state = ST_ACT_XX_ON;
+					} else if ((true == p_task_actuator_dta->flag) && (EV_ACT_XX_BLINK == p_task_actuator_dta->event))
+					{
+						p_task_actuator_dta->flag = false;
+						p_task_actuator_dta->state = ST_ACT_XX_BLINK_ON;
 					}
 
 					break;
@@ -196,6 +200,24 @@ void task_actuator_update(void *parameters)
 					break;
 
 				case ST_ACT_XX_BLINK_ON:
+
+					if (p_task_actuator_dta->tick == 0)
+					{
+						p_task_actuator_dta->tick = DEL_ACT_XX_BLI;
+						HAL_GPIO_TogglePin(p_task_actuator_cfg->gpio_port, p_task_actuator_cfg->pin);
+					}
+					else
+					{
+						p_task_actuator_dta->tick--;
+					}
+
+					if ((true == p_task_actuator_dta->flag) && (EV_ACT_XX_OFF == p_task_actuator_dta->event))
+					{
+						p_task_actuator_dta->flag = false;
+						HAL_GPIO_WritePin(p_task_actuator_cfg->gpio_port, p_task_actuator_cfg->pin, p_task_actuator_cfg->act_off);
+						p_task_actuator_dta->state = ST_ACT_XX_OFF;
+						p_task_actuator_dta->tick = 0;
+					}
 
 					break;
 

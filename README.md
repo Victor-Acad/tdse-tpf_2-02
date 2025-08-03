@@ -3,10 +3,9 @@ Trabajo Práctico Integrador para la materia Taller de Sistemas Embebidos (TA134
 
 ## Proyecto
 Contiene:
-- El proyecto de STM32 Cube IDE.
+- El proyecto de STM32CubeIDE.
 
 ## Recursos
 Contiene:
-- Un resumen del trabajo.
-- Un informe básico del trabajo.
+- Información del trabajo (informes).
 - Recursos adicionales a utilizar en el proyecto.
