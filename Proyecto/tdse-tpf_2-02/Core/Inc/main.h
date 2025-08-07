@@ -62,46 +62,48 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define LED2_Pin GPIO_PIN_13
+#define LED2_GPIO_Port GPIOC
 #define BTN_Pin GPIO_PIN_0
 #define BTN_GPIO_Port GPIOC
-#define C4_Pin GPIO_PIN_0
-#define C4_GPIO_Port GPIOA
-#define C3_Pin GPIO_PIN_1
-#define C3_GPIO_Port GPIOA
-#define R4_Pin GPIO_PIN_4
-#define R4_GPIO_Port GPIOA
-#define R3_Pin GPIO_PIN_5
-#define R3_GPIO_Port GPIOA
+#define BUZ_Pin GPIO_PIN_3
+#define BUZ_GPIO_Port GPIOC
+#define R1_Pin GPIO_PIN_5
+#define R1_GPIO_Port GPIOA
 #define R2_Pin GPIO_PIN_6
 #define R2_GPIO_Port GPIOA
-#define R1_Pin GPIO_PIN_7
-#define R1_GPIO_Port GPIOA
-#define LED1_Pin GPIO_PIN_0
-#define LED1_GPIO_Port GPIOB
-#define LED2_Pin GPIO_PIN_1
-#define LED2_GPIO_Port GPIOB
-#define BUZ_Pin GPIO_PIN_2
-#define BUZ_GPIO_Port GPIOB
-#define MFRC522_CS_Pin GPIO_PIN_12
-#define MFRC522_CS_GPIO_Port GPIOB
-#define MFRC522_SCK_Pin GPIO_PIN_13
-#define MFRC522_SCK_GPIO_Port GPIOB
-#define MFRC522_MOSI_Pin GPIO_PIN_14
-#define MFRC522_MOSI_GPIO_Port GPIOB
-#define MFRC522_MISO_Pin GPIO_PIN_15
+#define R3_Pin GPIO_PIN_7
+#define R3_GPIO_Port GPIOA
+#define C4_Pin GPIO_PIN_4
+#define C4_GPIO_Port GPIOC
+#define MFRC522_MISO_Pin GPIO_PIN_1
 #define MFRC522_MISO_GPIO_Port GPIOB
-#define MFRC522_RST_Pin GPIO_PIN_6
-#define MFRC522_RST_GPIO_Port GPIOC
-#define C1_Pin GPIO_PIN_10
-#define C1_GPIO_Port GPIOA
+#define MFRC522_RST_Pin GPIO_PIN_2
+#define MFRC522_RST_GPIO_Port GPIOB
+#define MFRC522_CS_Pin GPIO_PIN_13
+#define MFRC522_CS_GPIO_Port GPIOB
+#define MFRC522_SCK_Pin GPIO_PIN_14
+#define MFRC522_SCK_GPIO_Port GPIOB
+#define MFRC522_MOSI_Pin GPIO_PIN_15
+#define MFRC522_MOSI_GPIO_Port GPIOB
+#define C3_Pin GPIO_PIN_10
+#define C3_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
+#define LED1_Pin GPIO_PIN_15
+#define LED1_GPIO_Port GPIOA
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
+#define C1_Pin GPIO_PIN_4
+#define C1_GPIO_Port GPIOB
 #define C2_Pin GPIO_PIN_5
 #define C2_GPIO_Port GPIOB
+#define R4_Pin GPIO_PIN_6
+#define R4_GPIO_Port GPIOB
+#define LED3_Pin GPIO_PIN_7
+#define LED3_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

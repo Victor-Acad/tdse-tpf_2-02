@@ -72,14 +72,30 @@ typedef enum task_system_st {ST_SYS_INIT,
 							 ST_SYS_OFF_MODE,
 							 ST_SYS_OPT_PWD,
 							 ST_SYS_OPT_MENU,
-							 ST_SYS_OPEN_DOOR} task_system_st_t;
+							 ST_SYS_OPEN_DOOR,
+							 ST_SYS_WAIT} task_system_st_t;
+
+typedef struct
+{
+	char mem_status[8];
+	char password[6];
+	bool system_status;
+	bool alarm_status;
+	bool ldr_mode;
+	uint8_t ldr_adj;
+	uint8_t saved_entries;
+} system_parameters_t;
 
 typedef struct
 {
 	uint32_t			tick;
+	uint32_t			adc_tick;
+	uint32_t			reset_tick;
+	uint32_t			rfid_tick;
 	task_system_st_t	state;
 	task_system_ev_t	event;
 	bool				flag;
+	system_parameters_t system_parameters;
 } task_system_dta_t;
 
 /********************** external data declaration ****************************/

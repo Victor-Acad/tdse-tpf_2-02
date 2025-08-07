@@ -115,6 +115,7 @@ int main(void)
 
 	/* Application Init */
 	app_init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -126,6 +127,8 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  /* Application Update */
 	  app_update();
+
+
   }
   /* USER CODE END 3 */
 }
@@ -272,7 +275,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.ClockSpeed = 100000;
+  hi2c2.Init.ClockSpeed = 400000;
   hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -373,42 +376,34 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, R4_Pin|R3_Pin|R2_Pin|R1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, LED2_Pin|BUZ_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED1_Pin|LED2_Pin|BUZ_Pin|MFRC522_CS_Pin
-                          |MFRC522_SCK_Pin|MFRC522_MOSI_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, R1_Pin|R2_Pin|R3_Pin|LED1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(MFRC522_RST_GPIO_Port, MFRC522_RST_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, MFRC522_RST_Pin|MFRC522_CS_Pin|MFRC522_SCK_Pin|MFRC522_MOSI_Pin
+                          |R4_Pin|LED3_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BTN_Pin */
-  GPIO_InitStruct.Pin = BTN_Pin;
+  /*Configure GPIO pins : LED2_Pin BUZ_Pin */
+  GPIO_InitStruct.Pin = LED2_Pin|BUZ_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BTN_Pin C4_Pin */
+  GPIO_InitStruct.Pin = BTN_Pin|C4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(BTN_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : C4_Pin C3_Pin C1_Pin */
-  GPIO_InitStruct.Pin = C4_Pin|C3_Pin|C1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : R4_Pin R3_Pin R2_Pin R1_Pin */
-  GPIO_InitStruct.Pin = R4_Pin|R3_Pin|R2_Pin|R1_Pin;
+  /*Configure GPIO pins : R1_Pin R2_Pin R3_Pin LED1_Pin */
+  GPIO_InitStruct.Pin = R1_Pin|R2_Pin|R3_Pin|LED1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : LED1_Pin LED2_Pin BUZ_Pin MFRC522_CS_Pin
-                           MFRC522_SCK_Pin MFRC522_MOSI_Pin */
-  GPIO_InitStruct.Pin = LED1_Pin|LED2_Pin|BUZ_Pin|MFRC522_CS_Pin
-                          |MFRC522_SCK_Pin|MFRC522_MOSI_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : MFRC522_MISO_Pin */
   GPIO_InitStruct.Pin = MFRC522_MISO_Pin;
@@ -416,18 +411,26 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(MFRC522_MISO_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : MFRC522_RST_Pin */
-  GPIO_InitStruct.Pin = MFRC522_RST_Pin;
+  /*Configure GPIO pins : MFRC522_RST_Pin MFRC522_CS_Pin MFRC522_SCK_Pin MFRC522_MOSI_Pin
+                           R4_Pin LED3_Pin */
+  GPIO_InitStruct.Pin = MFRC522_RST_Pin|MFRC522_CS_Pin|MFRC522_SCK_Pin|MFRC522_MOSI_Pin
+                          |R4_Pin|LED3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(MFRC522_RST_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : C2_Pin */
-  GPIO_InitStruct.Pin = C2_Pin;
+  /*Configure GPIO pin : C3_Pin */
+  GPIO_InitStruct.Pin = C3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(C2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(C3_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : C1_Pin C2_Pin */
+  GPIO_InitStruct.Pin = C1_Pin|C2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

@@ -109,4 +109,21 @@ bool any_event_task_system(void)
   return (queue_task_a.head != queue_task_a.tail);
 }
 
+bool verify_uid(const char* uid_array[], uint8_t array_size, uint8_t uid_to_verify[])
+{
+	bool is_allowed = false;
+
+	char uid_str[9];
+	sprintf(uid_str, "%02X%02X%02X%02X", uid_to_verify[0], uid_to_verify[1], uid_to_verify[2], uid_to_verify[3]);
+
+	for (uint8_t i = 0; i < array_size; i++)
+	{
+        if (strcmp(uid_array[i], uid_str) == 0) {
+        	is_allowed = true;
+        }
+	}
+
+	return is_allowed;
+}
+
 /********************** end of file ******************************************/

@@ -109,17 +109,18 @@ typedef enum task_actuator_ev {EV_ACT_XX_OFF,
 							   EV_ACT_XX_ON,
 							   EV_ACT_XX_NOT_BLINK,
 							   EV_ACT_XX_BLINK,
+							   EV_ACT_XX_FAST_BLINK,
 							   EV_ACT_XX_PULSE} task_actuator_ev_t;
 
 /* States of Task Actuator */
 typedef enum task_actuator_st {ST_ACT_XX_OFF,
 							   ST_ACT_XX_ON,
-							   ST_ACT_XX_BLINK_ON,
-							   ST_ACT_XX_BLINK_OFF,
+							   ST_ACT_XX_BLINK,
+							   ST_ACT_XX_FAST_BLINK,
 							   ST_ACT_XX_PULSE} task_actuator_st_t;
 
 /* Identifier of Task Actuator */
-typedef enum task_actuator_id {ID_LED_1, ID_LED_2, ID_BUZ} task_actuator_id_t;
+typedef enum task_actuator_id {ID_LED_1, ID_LED_2, ID_LED_3, ID_BUZ} task_actuator_id_t;
 
 typedef struct
 {

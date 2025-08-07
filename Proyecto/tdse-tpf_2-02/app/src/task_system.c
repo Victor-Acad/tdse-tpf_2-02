@@ -47,6 +47,8 @@
 /* External module includes. */
 #include "i2c_lcd.h"
 #include "keypad_4x4.h"
+#include "mfrc522.h"
+#include "ds3231.h"
 
 /* Application & Tasks includes. */
 #include "board.h"
@@ -55,7 +57,6 @@
 #include "task_system_interface.h"
 #include "task_actuator_attribute.h"
 #include "task_actuator_interface.h"
-#include "ext_memory.h"
 
 /********************** macros and definitions *******************************/
 #define G_TASK_SYS_CNT_INI			0ul
@@ -67,23 +68,53 @@
 
 #define DEL_SYS_INIT				1500ul
 #define DEL_ADC_READ				5000ul
-#define DEL_RESET_STATE				5000ul
+#define DEL_RFID_READ				400ul
+#define DEL_RESET_STATE				10000ul
+#define DEL_WRONG_PWD_WAIT			2000ul
 
 #define ADC_INITIAL_CALIBRATION		1500
 
+#define MAX_STORED_ENTRIES			5
+
+#define MEMORY_CONNECTED			(1)
+#define MEMORY_ACCESS				(1)
+
 /********************** internal data declaration ****************************/
-task_system_dta_t task_system_dta =
-	{DEL_SYS_INIT, ST_SYS_INIT, EV_SYS_XX_BTN_IDLE, false};
+task_system_dta_t task_system_dta = {
+    .tick = DEL_SYS_INIT,
+	.adc_tick = 0,
+    .reset_tick = 0,
+	.rfid_tick = 0,
+    .state = ST_SYS_INIT,
+    .event = EV_SYS_XX_BTN_IDLE,
+    .flag = false,
+    .system_parameters = {
+        .mem_status = {'\0'},
+        .password = {'\0'},
+        .system_status = true,
+        .alarm_status = true,
+        .ldr_mode = false,
+        .ldr_adj = 5,
+		.saved_entries = 0
+    }
+};
 
 #define SYSTEM_DTA_QTY	(sizeof(task_system_dta)/sizeof(task_system_dta_t))
 
+// Utility variables.
 uint8_t wrong_tries = 0;
-uint16_t reset_tick = 0;
 
-char pwd_buffer[5] = "xxxxx";
+// Password buffer.
+char pwd_buffer[6] = "xxxxx";
 uint8_t buffer_idx = 0;
 
-memory_t ext_mem;
+// Allowed UIDs array.
+const char* allowed_uids[] = {
+	"90245C21"
+};
+
+#define ALLOWED_UIDS_QTY (sizeof(allowed_uids)/sizeof(allowed_uids[0]))
+
 
 /********************** internal functions declaration ***********************/
 
@@ -141,11 +172,42 @@ void task_system_init(void *parameters)
 
 	/* Init PWM */
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1000);
 
-	/* Init memory */
+	/* Init RFID module */
+	MFRC522_Init();
+
+	/* Read memory */
 	#if MEMORY_CONNECTED
-		// TODO: Read memory.
+		HAL_I2C_Mem_Read(&hi2c2, 0xA0, 0x0000, I2C_MEMADD_SIZE_16BIT, (uint8_t*)p_task_system_dta->system_parameters.mem_status, 8, HAL_MAX_DELAY);
+		HAL_I2C_Mem_Read(&hi2c2, 0xA0, 0x0008, I2C_MEMADD_SIZE_16BIT, (uint8_t*)p_task_system_dta->system_parameters.password, 6, HAL_MAX_DELAY);
+		HAL_I2C_Mem_Read(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, &p_task_system_dta->system_parameters.saved_entries, 1, HAL_MAX_DELAY);
+
+	#if MEMORY_ACCESS
+		LOGGER_LOG("Se inició el sistema en modo de acceso a la memoria.\n\n");
+		LOGGER_LOG("Estado: %s\nContraseña: %s\n\n", p_task_system_dta->system_parameters.mem_status, p_task_system_dta->system_parameters.password);
+		LOGGER_LOG("En total hay %d entradas guardadas.\n\n", p_task_system_dta->system_parameters.saved_entries);
+
+		char time_str[33];
+
+		for (uint8_t i = 0; i < p_task_system_dta->system_parameters.saved_entries; i++)
+		{
+			HAL_I2C_Mem_Read(&hi2c2, 0xA0, 0x000F + 64*i, I2C_MEMADD_SIZE_16BIT, (uint8_t*)time_str, sizeof(time_str), HAL_MAX_DELAY);
+
+			LOGGER_LOG("%s\n", time_str);
+		}
+
+		LOGGER_LOG("\n");
 	#endif
+
+	#endif
+
+	/* Turn off actuators */
+		put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_1);
+		put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_2);
+		put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_3);
+		put_event_task_actuator(EV_ACT_XX_OFF, ID_BUZ);
+
 
 	g_task_system_tick_cnt = G_TASK_SYS_TICK_CNT_INI;
 }
@@ -192,68 +254,58 @@ void task_system_update(void *parameters)
 			p_task_system_dta->event = get_event_task_system();
 		}
 
-		// Handle LDR controlled system.
-		if (ext_mem.system_status)
+		// Handle ADC data and LDR controlled system.
+		if (p_task_system_dta->adc_tick == 0)
 		{
-			if (ext_mem.ldr_mode)
+			p_task_system_dta->adc_tick = DEL_ADC_READ;
+
+			HAL_ADC_Start(&hadc1);
+			HAL_ADC_PollForConversion(&hadc1, 0);
+
+			uint16_t adc_val = HAL_ADC_GetValue(&hadc1);
+
+			if (adc_val > (ADC_INITIAL_CALIBRATION + 200 * p_task_system_dta->system_parameters.ldr_adj))
 			{
-				if (p_task_system_dta->tick == 0)
+				put_event_task_actuator(EV_ACT_XX_ON, ID_LED_3);
+			}
+			else
+			{
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_3);
+			}
+
+			if (p_task_system_dta->system_parameters.system_status && p_task_system_dta->system_parameters.ldr_mode)
+			{
+				if (adc_val > (ADC_INITIAL_CALIBRATION + 200 * p_task_system_dta->system_parameters.ldr_adj))
 				{
-					p_task_system_dta->tick = DEL_ADC_READ;
+					p_task_system_dta->system_parameters.alarm_status = true;
 
-					HAL_ADC_Start(&hadc1);
-					HAL_ADC_PollForConversion(&hadc1, 0);
-
-					uint16_t adc_val = HAL_ADC_GetValue(&hadc1);
-
-					if (adc_val > (ADC_INITIAL_CALIBRATION + 200 * ext_mem.ldr_adj))
-					{
-						ext_mem.alarm_status = true;
-
-						put_event_task_actuator(EV_ACT_XX_ON, ID_LED_2);
-						put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_1);
-					}
-					else
-					{
-						ext_mem.alarm_status = false;
-
-						put_event_task_actuator(EV_ACT_XX_ON, ID_LED_1);
-						put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_2);
-					}
+					put_event_task_actuator(EV_ACT_XX_ON, ID_LED_2);
+					put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_1);
 				}
 				else
 				{
-					p_task_system_dta->tick--;
+					p_task_system_dta->system_parameters.alarm_status = false;
+
+					put_event_task_actuator(EV_ACT_XX_ON, ID_LED_1);
+					put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_2);
 				}
 			}
 		}
-
-		// Handle manual opening.
-		if (p_task_system_dta->state != ST_SYS_OPEN_DOOR && p_task_system_dta->state != ST_SYS_INIT && p_task_system_dta->state != ST_SYS_REQ_PWD)
+		else
 		{
-			if ((true == p_task_system_dta->flag) && (EV_SYS_XX_BTN_ACTIVE == p_task_system_dta->event))
-			{
-				p_task_system_dta->flag = false;
-				p_task_system_dta->state = ST_SYS_OPEN_DOOR;
-
-				buffer_reset(pwd_buffer, &buffer_idx);
-
-				// Prepare LCD.
-				lcd_clear(&lcd1);
-				lcd_pos(&lcd1, 2, 0);
-				lcd_puts(&lcd1, "Puerta abierta.");
-			}
+			p_task_system_dta->adc_tick--;
 		}
 
-		// Handle buzzer.
-		if (wrong_tries == 3)
-		{
-			wrong_tries++;
-			put_event_task_actuator(EV_ACT_XX_BLINK, ID_BUZ);
-		}
+		/* Local variables declaration */
 
-		char status_str[20];
+		char status_str[21];
 		char key;
+
+		uint8_t UID[8];
+		uint8_t TagType;
+
+		uint8_t day, mth, year, dow, hr, min, sec;
+		char time_str[33];
 
 		switch (p_task_system_dta->state)
 		{
@@ -266,37 +318,20 @@ void task_system_update(void *parameters)
 				else
 				{
 					#if MEMORY_CONNECTED
-						if (strcmp(ext_mem.mem_status, "written") == 0)
+						if (strcmp(p_task_system_dta->system_parameters.mem_status, "written") == 0)
 						{
-							if (ext_mem.system_status) {
-								// Prepare LCD.
-								lcd_clear(&lcd1);
-								lcd_pos(&lcd1, 0, 0);
-								lcd_puts(&lcd1, "Ingrese clave:");
-								lcd_pos(&lcd1, 2, 0);
-								lcd_puts(&lcd1, "A-Borrar D-Confirmar");
-								lcd_pos(&lcd1, 3, 0);
-								lcd_puts(&lcd1, "C-Opciones");
-								put_event_task_actuator(EV_ACT_XX_ON, ID_LED_2);
-								put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_1);
+							// Prepare LCD.
+							lcd_clear(&lcd1);
+							lcd_pos(&lcd1, 0, 0);
+							lcd_puts(&lcd1, "Ingrese clave:");
+							lcd_pos(&lcd1, 2, 0);
+							lcd_puts(&lcd1, "A-Borrar D-Confirmar");
+							lcd_pos(&lcd1, 3, 0);
+							lcd_puts(&lcd1, "C-Opciones");
+							put_event_task_actuator(EV_ACT_XX_ON, ID_LED_2);
+							put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_1);
 
-								p_task_system_dta->state = ST_SYS_AWAIT_PWD;
-							}
-							else
-							{
-								// Prepare LCD.
-								lcd_clear(&lcd1);
-								lcd_pos(&lcd1, 0, 0);
-								lcd_puts(&lcd1, "Presione cualquier");
-								lcd_pos(&lcd1, 1, 0);
-								lcd_puts(&lcd1, "numero para entrar.");
-								lcd_pos(&lcd1, 3, 0);
-								lcd_puts(&lcd1, "C-Opciones");
-								put_event_task_actuator(EV_ACT_XX_ON, ID_LED_1);
-								put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_2);
-
-								p_task_system_dta->state = ST_SYS_OFF_MODE;
-							}
+							p_task_system_dta->state = ST_SYS_AWAIT_PWD;
 						}
 						else
 						{
@@ -305,6 +340,7 @@ void task_system_update(void *parameters)
 							lcd_puts(&lcd1, "Nueva clave:");
 							lcd_pos(&lcd1, 3, 0);
 							lcd_puts(&lcd1, "A-Borrar D-Confirmar");
+
 							p_task_system_dta->state = ST_SYS_REQ_PWD;
 						}
 					#else
@@ -313,6 +349,7 @@ void task_system_update(void *parameters)
 						lcd_puts(&lcd1, "Nueva clave:");
 						lcd_pos(&lcd1, 3, 0);
 						lcd_puts(&lcd1, "A-Borrar D-Confirmar");
+
 						p_task_system_dta->state = ST_SYS_REQ_PWD;
 					#endif
 				}
@@ -352,15 +389,16 @@ void task_system_update(void *parameters)
 							lcd_pos(&lcd1, 3, 0);
 							lcd_puts(&lcd1, "C-Opciones");
 
-							// Init memory data.
-							strcpy(ext_mem.mem_status, "written"); // Mark that the memory has been written.
-							ext_mem.system_status = true;
-							ext_mem.alarm_status = true;
-							strcpy(ext_mem.password, pwd_buffer);
-							ext_mem.password[5] = '\0';
-							ext_mem.ldr_mode = false;
-							ext_mem.ldr_adj = 5;
-							// TODO: Write to actual memory.
+							#if MEMORY_CONNECTED
+								HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x0000, I2C_MEMADD_SIZE_16BIT, (uint8_t*)"written", 8, HAL_MAX_DELAY);
+								HAL_Delay(10);
+								HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x0008, I2C_MEMADD_SIZE_16BIT, (uint8_t*)pwd_buffer, 6, HAL_MAX_DELAY);
+								HAL_Delay(10);
+								HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, 0x00, 1, HAL_MAX_DELAY);
+								HAL_Delay(10);
+							#endif
+
+							memcpy(p_task_system_dta->system_parameters.password, pwd_buffer, 6);
 
 							buffer_reset(pwd_buffer, &buffer_idx);
 
@@ -374,7 +412,7 @@ void task_system_update(void *parameters)
 
 			case ST_SYS_AWAIT_PWD:
 
-				if (ext_mem.alarm_status == false)
+				if (p_task_system_dta->system_parameters.alarm_status == false)
 				{
 					p_task_system_dta->state = ST_SYS_OFF_MODE;
 
@@ -396,7 +434,7 @@ void task_system_update(void *parameters)
 
 				if (key != 0)
 				{
-					reset_tick = 0;
+					p_task_system_dta->reset_tick = 0;
 
 					if (key >= '0' && key <= '9')
 					{
@@ -424,11 +462,12 @@ void task_system_update(void *parameters)
 						lcd_pos(&lcd1, 3, 0);
 						lcd_puts(&lcd1, "C-Volver");
 					}
-					else if (key == 'D')
+					else if ((key == 'D') && (buffer_idx > 0))
 					{
-						if (strcmp(ext_mem.password, pwd_buffer) == 0)
+						if (strcmp(p_task_system_dta->system_parameters.password, pwd_buffer) == 0)
 						{
 							p_task_system_dta->state = ST_SYS_OPEN_DOOR;
+							__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000);
 							buffer_reset(pwd_buffer, &buffer_idx);
 
 							// Prepare LCD.
@@ -439,27 +478,109 @@ void task_system_update(void *parameters)
 							lcd_puts(&lcd1, "Puerta abierta.");
 
 							wrong_tries = 0;
-							put_event_task_actuator(EV_ACT_XX_OFF, ID_BUZ);
+							put_event_task_actuator(EV_ACT_XX_FAST_BLINK, ID_BUZ);
 						}
 						else
 						{
-							buffer_reset(pwd_buffer, &buffer_idx);
+							lcd_clear(&lcd1);
 							lcd_pos(&lcd1, 1, 0);
-							buffer_to_lcd(&lcd1, pwd_buffer);
+							lcd_puts(&lcd1, "  CLAVE INCORRECTA");
 
-							if (wrong_tries < 3)
+							p_task_system_dta->tick = DEL_WRONG_PWD_WAIT;
+							p_task_system_dta->state = ST_SYS_WAIT;
+
+							if (wrong_tries < 2)
 							{
 								wrong_tries++;
+							}
+							else if (wrong_tries == 2)
+							{
+								wrong_tries++;
+								put_event_task_actuator(EV_ACT_XX_BLINK, ID_BUZ);
 							}
 						}
 					}
 				}
 
-				reset_tick++;
-
-				if (reset_tick >= DEL_RESET_STATE)
+				if (p_task_system_dta->rfid_tick == 0)
 				{
-					reset_tick = 0;
+					p_task_system_dta->rfid_tick = DEL_RFID_READ;
+
+					if (MFRC522_IsCard(&TagType))
+					{
+						if (MFRC522_ReadCardSerial((uint8_t*)&UID))
+						{
+							if (verify_uid(allowed_uids, ALLOWED_UIDS_QTY, UID))
+							{
+								p_task_system_dta->state = ST_SYS_OPEN_DOOR;
+								__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000);
+
+								// Prepare LCD.
+								lcd_clear(&lcd1);
+								lcd_pos(&lcd1, 0, 0);
+								lcd_puts(&lcd1, "Tarjeta introducida.");
+								lcd_pos(&lcd1, 2, 0);
+								lcd_puts(&lcd1, "Puerta abierta.");
+
+								buffer_reset(pwd_buffer, &buffer_idx);
+
+								wrong_tries = 0;
+								put_event_task_actuator(EV_ACT_XX_FAST_BLINK, ID_BUZ);
+
+								#if MEMORY_CONNECTED
+									if (p_task_system_dta->system_parameters.saved_entries >= MAX_STORED_ENTRIES)
+									{
+										p_task_system_dta->system_parameters.saved_entries = 0;
+									}
+
+									DS3231_Get_Date(&day, &mth, &year, &dow);
+									DS3231_Get_Time(&hr, &min, &sec);
+									snprintf(time_str, sizeof(time_str), "%02u/%02u/20%02u | %02u:%02u:%02u | %02X%02X%02X%02X", day, mth, year, hr, min, sec, UID[0], UID[1], UID[2], UID[3]);
+
+									HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000F + 64*p_task_system_dta->system_parameters.saved_entries, I2C_MEMADD_SIZE_16BIT, (uint8_t*)time_str, sizeof(time_str), HAL_MAX_DELAY);
+									HAL_Delay(10);
+
+									p_task_system_dta->system_parameters.saved_entries++;
+
+									HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, &p_task_system_dta->system_parameters.saved_entries, 1, HAL_MAX_DELAY);
+									HAL_Delay(10);
+								#endif
+							}
+							else
+							{
+								lcd_clear(&lcd1);
+								lcd_pos(&lcd1, 1, 0);
+								lcd_puts(&lcd1, "TARJETA NO ACEPTADA");
+
+								p_task_system_dta->tick = DEL_WRONG_PWD_WAIT;
+								p_task_system_dta->state = ST_SYS_WAIT;
+
+								if (wrong_tries < 2)
+								{
+									wrong_tries++;
+								}
+								else if (wrong_tries == 2)
+								{
+									wrong_tries++;
+									put_event_task_actuator(EV_ACT_XX_BLINK, ID_BUZ);
+								}
+							}
+
+						}
+
+						MFRC522_Halt();
+					}
+				}
+				else
+				{
+					p_task_system_dta->rfid_tick--;
+				}
+
+				p_task_system_dta->reset_tick++;
+
+				if (p_task_system_dta->reset_tick >= DEL_RESET_STATE)
+				{
+					p_task_system_dta->reset_tick = 0;
 
 					buffer_reset(pwd_buffer, &buffer_idx);
 					lcd_pos(&lcd1, 1, 0);
@@ -470,7 +591,7 @@ void task_system_update(void *parameters)
 
 			case ST_SYS_OFF_MODE:
 
-				if (ext_mem.alarm_status == true)
+				if (p_task_system_dta->system_parameters.alarm_status == true)
 				{
 					p_task_system_dta->state = ST_SYS_AWAIT_PWD;
 
@@ -495,11 +616,14 @@ void task_system_update(void *parameters)
 					if (key >= '0' && key <= '9')
 					{
 						p_task_system_dta->state = ST_SYS_OPEN_DOOR;
+						__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000);
 
 						// Prepare LCD.
 						lcd_clear(&lcd1);
 						lcd_pos(&lcd1, 2, 0);
 						lcd_puts(&lcd1, "Puerta abierta.");
+
+						put_event_task_actuator(EV_ACT_XX_FAST_BLINK, ID_BUZ);
 					}
 					else if (key == 'C')
 					{
@@ -517,6 +641,60 @@ void task_system_update(void *parameters)
 					}
 				}
 
+				if (p_task_system_dta->rfid_tick == 0)
+				{
+					p_task_system_dta->rfid_tick = DEL_RFID_READ;
+
+					if (MFRC522_IsCard(&TagType))
+					{
+						if (MFRC522_ReadCardSerial((uint8_t*)&UID))
+						{
+							if (verify_uid(allowed_uids, ALLOWED_UIDS_QTY, UID))
+							{
+								p_task_system_dta->state = ST_SYS_OPEN_DOOR;
+								__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000);
+
+								// Prepare LCD.
+								lcd_clear(&lcd1);
+								lcd_pos(&lcd1, 0, 0);
+								lcd_puts(&lcd1, "Tarjeta introducida.");
+								lcd_pos(&lcd1, 2, 0);
+								lcd_puts(&lcd1, "Puerta abierta.");
+
+								buffer_reset(pwd_buffer, &buffer_idx);
+
+								wrong_tries = 0;
+								put_event_task_actuator(EV_ACT_XX_FAST_BLINK, ID_BUZ);
+
+								#if MEMORY_CONNECTED
+									if (p_task_system_dta->system_parameters.saved_entries >= MAX_STORED_ENTRIES)
+									{
+										p_task_system_dta->system_parameters.saved_entries = 0;
+									}
+
+									DS3231_Get_Date(&day, &mth, &year, &dow);
+									DS3231_Get_Time(&hr, &min, &sec);
+									snprintf(time_str, sizeof(time_str), "%02u/%02u/20%02u | %02u:%02u:%02u | %02X%02X%02X%02X", day, mth, year, hr, min, sec, UID[0], UID[1], UID[2], UID[3]);
+
+									HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000F + 64*p_task_system_dta->system_parameters.saved_entries, I2C_MEMADD_SIZE_16BIT, (uint8_t*)time_str, sizeof(time_str), HAL_MAX_DELAY);
+									HAL_Delay(10);
+
+									p_task_system_dta->system_parameters.saved_entries++;
+
+									HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, &p_task_system_dta->system_parameters.saved_entries, 1, HAL_MAX_DELAY);
+									HAL_Delay(10);
+								#endif
+							}
+						}
+
+						MFRC522_Halt();
+					}
+				}
+				else
+				{
+					p_task_system_dta->rfid_tick--;
+				}
+
 				break;
 
 			case ST_SYS_OPT_PWD:
@@ -525,7 +703,7 @@ void task_system_update(void *parameters)
 
 				if (key != 0)
 				{
-					reset_tick = 0;
+					p_task_system_dta->reset_tick = 0;
 
 					if (key >= '0' && key <= '9')
 					{
@@ -543,7 +721,7 @@ void task_system_update(void *parameters)
 					{
 						buffer_reset(pwd_buffer, &buffer_idx);
 
-						if (ext_mem.alarm_status)
+						if (p_task_system_dta->system_parameters.alarm_status)
 						{
 							p_task_system_dta->state = ST_SYS_AWAIT_PWD;
 
@@ -570,9 +748,9 @@ void task_system_update(void *parameters)
 							lcd_puts(&lcd1, "C-Opciones");
 						}
 					}
-					else if (key == 'D')
+					else if ((key == 'D') && (buffer_idx > 0))
 					{
-						if (strcmp(ext_mem.password, pwd_buffer) == 0)
+						if (strcmp(p_task_system_dta->system_parameters.password, pwd_buffer) == 0)
 						{
 							p_task_system_dta->state = ST_SYS_OPT_MENU;
 							buffer_reset(pwd_buffer, &buffer_idx);
@@ -582,17 +760,17 @@ void task_system_update(void *parameters)
 
 							lcd_pos(&lcd1, 0, 0);
 
-							snprintf(status_str, sizeof(status_str), "A-Sistema %s", (ext_mem.system_status == true ? "ON " : "OFF"));
+							snprintf(status_str, sizeof(status_str), "A-Sistema %s", (p_task_system_dta->system_parameters.system_status == true ? "ON " : "OFF"));
 							lcd_puts(&lcd1, status_str);
 
 							lcd_pos(&lcd1, 1, 0);
 
-							snprintf(status_str, sizeof(status_str), "B-Modo LDR %s", (ext_mem.ldr_mode == true ? "ON " : "OFF"));
+							snprintf(status_str, sizeof(status_str), "B-Modo LDR %s", (p_task_system_dta->system_parameters.ldr_mode == true ? "ON " : "OFF"));
 							lcd_puts(&lcd1, status_str);
 
 							lcd_pos(&lcd1, 2, 0);
 
-							snprintf(status_str, sizeof(status_str), "C-Ajuste LDR %d ", ext_mem.ldr_adj);
+							snprintf(status_str, sizeof(status_str), "C-Ajuste LDR %d ", p_task_system_dta->system_parameters.ldr_adj);
 							lcd_puts(&lcd1, status_str);
 
 							lcd_pos(&lcd1, 3, 0);
@@ -601,27 +779,51 @@ void task_system_update(void *parameters)
 							wrong_tries = 0;
 							put_event_task_actuator(EV_ACT_XX_OFF, ID_BUZ);
 						}
+
+						#if MEMORY_CONNECTED
+
+						else if (strcmp("65535", pwd_buffer) == 0)
+						{
+							HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x0000, I2C_MEMADD_SIZE_16BIT, (uint8_t*)"notinit", 8, HAL_MAX_DELAY);
+							HAL_Delay(10);
+							HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x0008, I2C_MEMADD_SIZE_16BIT, (uint8_t*)"xxxxx", 6, HAL_MAX_DELAY);
+							HAL_Delay(10);
+							HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, 0x00, 1, HAL_MAX_DELAY);
+							HAL_Delay(10);
+
+							buffer_reset(pwd_buffer, &buffer_idx);
+							lcd_pos(&lcd1, 1, 0);
+							buffer_to_lcd(&lcd1, pwd_buffer);
+						}
+
+						#endif
+
 						else
 						{
 							buffer_reset(pwd_buffer, &buffer_idx);
 							lcd_pos(&lcd1, 1, 0);
 							buffer_to_lcd(&lcd1, pwd_buffer);
 
-							if (wrong_tries < 3)
+							if (wrong_tries < 2)
 							{
 								wrong_tries++;
+							}
+							else if (wrong_tries == 2)
+							{
+								wrong_tries++;
+								put_event_task_actuator(EV_ACT_XX_BLINK, ID_BUZ);
 							}
 						}
 					}
 				}
 
-				reset_tick++;
+				p_task_system_dta->reset_tick++;
 
-				if (reset_tick >= DEL_RESET_STATE)
+				if (p_task_system_dta->reset_tick >= DEL_RESET_STATE)
 				{
-					reset_tick = 0;
+					p_task_system_dta->reset_tick = 0;
 
-					if (ext_mem.alarm_status == true)
+					if (p_task_system_dta->system_parameters.alarm_status == true)
 					{
 						p_task_system_dta->state = ST_SYS_AWAIT_PWD;
 
@@ -657,46 +859,44 @@ void task_system_update(void *parameters)
 
 				if (key != 0)
 				{
-					reset_tick = 0;
+					p_task_system_dta->reset_tick = 0;
 
 					if (key == 'A')
 					{
-						ext_mem.system_status = !ext_mem.system_status;
-						// TODO: Write to memory.
+						p_task_system_dta->system_parameters.system_status = !p_task_system_dta->system_parameters.system_status;
 
 						lcd_pos(&lcd1, 0, 0);
 
-						snprintf(status_str, sizeof(status_str), "A-Sistema %s", (ext_mem.system_status == true ? "ON " : "OFF"));
+						snprintf(status_str, sizeof(status_str), "A-Sistema %s", (p_task_system_dta->system_parameters.system_status == true ? "ON " : "OFF"));
 						lcd_puts(&lcd1, status_str);
 
-						if (ext_mem.system_status == true)
+						if (p_task_system_dta->system_parameters.system_status == true)
 						{
 							put_event_task_actuator(EV_ACT_XX_ON, ID_LED_2);
 							put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_1);
 
-							ext_mem.alarm_status = true;
+							p_task_system_dta->system_parameters.alarm_status = true;
 						}
 						else
 						{
 							put_event_task_actuator(EV_ACT_XX_ON, ID_LED_1);
 							put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_2);
 
-							ext_mem.alarm_status = false;
+							p_task_system_dta->system_parameters.alarm_status = false;
 						}
 					}
 					else if (key == 'B')
 					{
-						ext_mem.ldr_mode = !ext_mem.ldr_mode;
-						// TODO: Write to memory.
+						p_task_system_dta->system_parameters.ldr_mode = !p_task_system_dta->system_parameters.ldr_mode;
 
 						lcd_pos(&lcd1, 1, 0);
 
-						snprintf(status_str, sizeof(status_str), "B-Modo LDR %s", (ext_mem.ldr_mode == true ? "ON " : "OFF"));
+						snprintf(status_str, sizeof(status_str), "B-Modo LDR %s", (p_task_system_dta->system_parameters.ldr_mode == true ? "ON " : "OFF"));
 						lcd_puts(&lcd1, status_str);
 
-						if (ext_mem.system_status == true && ext_mem.ldr_mode == false)
+						if (p_task_system_dta->system_parameters.system_status == true && p_task_system_dta->system_parameters.ldr_mode == false)
 						{
-							ext_mem.alarm_status = true;
+							p_task_system_dta->system_parameters.alarm_status = true;
 
 							put_event_task_actuator(EV_ACT_XX_ON, ID_LED_2);
 							put_event_task_actuator(EV_ACT_XX_OFF, ID_LED_1);
@@ -704,17 +904,16 @@ void task_system_update(void *parameters)
 					}
 					else if (key == 'C')
 					{
-						ext_mem.ldr_adj = (ext_mem.ldr_adj % 9) + 1;
-						// TODO: Write to memory.
+						p_task_system_dta->system_parameters.ldr_adj = (p_task_system_dta->system_parameters.ldr_adj % 9) + 1;
 
 						lcd_pos(&lcd1, 2, 0);
 
-						snprintf(status_str, sizeof(status_str), "C-Ajuste LDR %d ", ext_mem.ldr_adj);
+						snprintf(status_str, sizeof(status_str), "C-Ajuste LDR %d ", p_task_system_dta->system_parameters.ldr_adj);
 						lcd_puts(&lcd1, status_str);
 					}
 					else if (key == 'D')
 					{
-						if (ext_mem.alarm_status)
+						if (p_task_system_dta->system_parameters.alarm_status)
 						{
 							p_task_system_dta->state = ST_SYS_AWAIT_PWD;
 
@@ -755,13 +954,13 @@ void task_system_update(void *parameters)
 					}
 				}
 
-				reset_tick++;
+				p_task_system_dta->reset_tick++;
 
-				if (reset_tick >= DEL_RESET_STATE)
+				if (p_task_system_dta->reset_tick >= DEL_RESET_STATE)
 				{
-					reset_tick = 0;
+					p_task_system_dta->reset_tick = 0;
 
-					if (ext_mem.alarm_status == true)
+					if (p_task_system_dta->system_parameters.alarm_status == true)
 					{
 						p_task_system_dta->state = ST_SYS_AWAIT_PWD;
 
@@ -795,9 +994,10 @@ void task_system_update(void *parameters)
 
 				if ((true == p_task_system_dta->flag) && (EV_SYS_XX_BTN_ACTIVE == p_task_system_dta->event))
 				{
-					p_task_system_dta->flag = false;
+					__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1000);
+					put_event_task_actuator(EV_ACT_XX_OFF, ID_BUZ);
 
-					if (ext_mem.alarm_status)
+					if (p_task_system_dta->system_parameters.alarm_status)
 					{
 						p_task_system_dta->state = ST_SYS_AWAIT_PWD;
 
@@ -823,6 +1023,44 @@ void task_system_update(void *parameters)
 						lcd_pos(&lcd1, 3, 0);
 						lcd_puts(&lcd1, "C-Opciones");
 					}
+				}
+
+				break;
+
+			case ST_SYS_WAIT:
+
+				if (p_task_system_dta->tick == 0)
+				{
+					if (p_task_system_dta->system_parameters.alarm_status)
+					{
+						p_task_system_dta->state = ST_SYS_AWAIT_PWD;
+
+						// Prepare LCD.
+						lcd_clear(&lcd1);
+						lcd_pos(&lcd1, 0, 0);
+						lcd_puts(&lcd1, "Ingrese clave:");
+						lcd_pos(&lcd1, 2, 0);
+						lcd_puts(&lcd1, "A-Borrar D-Confirmar");
+						lcd_pos(&lcd1, 3, 0);
+						lcd_puts(&lcd1, "C-Opciones");
+					}
+					else
+					{
+						p_task_system_dta->state = ST_SYS_OFF_MODE;
+
+						// Prepare LCD.
+						lcd_clear(&lcd1);
+						lcd_pos(&lcd1, 0, 0);
+						lcd_puts(&lcd1, "Presione cualquier");
+						lcd_pos(&lcd1, 1, 0);
+						lcd_puts(&lcd1, "numero para entrar.");
+						lcd_pos(&lcd1, 3, 0);
+						lcd_puts(&lcd1, "C-Opciones");
+					}
+				}
+				else
+				{
+					p_task_system_dta->tick--;
 				}
 
 				break;

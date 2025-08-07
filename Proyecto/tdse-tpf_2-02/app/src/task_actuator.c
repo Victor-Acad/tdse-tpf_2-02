@@ -58,11 +58,15 @@
 #define DEL_ACT_XX_BLI				500ul
 #define DEL_ACT_XX_MIN				0ul
 
+#define DEL_ACT_XX_FAST_BLI			120ul
+
 /********************** internal data declaration ****************************/
 const task_actuator_cfg_t task_actuator_cfg_list[] = {
 	{ID_LED_1,  LED_1_PORT,  LED_1_PIN, LED_1_ON,  LED_1_OFF,
 	 DEL_ACT_XX_BLI, DEL_ACT_XX_PUL},
 	{ID_LED_2,  LED_2_PORT,  LED_2_PIN, LED_2_ON,  LED_2_OFF,
+	 DEL_ACT_XX_BLI, DEL_ACT_XX_PUL},
+	{ID_LED_3,  LED_3_PORT,  LED_3_PIN, LED_3_ON,  LED_3_OFF,
 	 DEL_ACT_XX_BLI, DEL_ACT_XX_PUL},
 	{ID_BUZ,  BUZ_PORT,  BUZ_PIN, BUZ_ON,  BUZ_OFF,
 	 DEL_ACT_XX_BLI, DEL_ACT_XX_PUL}
@@ -71,6 +75,7 @@ const task_actuator_cfg_t task_actuator_cfg_list[] = {
 #define ACTUATOR_CFG_QTY	(sizeof(task_actuator_cfg_list)/sizeof(task_actuator_cfg_t))
 
 task_actuator_dta_t task_actuator_dta_list[] = {
+	{DEL_ACT_XX_MIN, ST_ACT_XX_OFF, EV_ACT_XX_NOT_BLINK, false},
 	{DEL_ACT_XX_MIN, ST_ACT_XX_OFF, EV_ACT_XX_NOT_BLINK, false},
 	{DEL_ACT_XX_MIN, ST_ACT_XX_OFF, EV_ACT_XX_NOT_BLINK, false},
 	{DEL_ACT_XX_MIN, ST_ACT_XX_OFF, EV_ACT_XX_NOT_BLINK, false}
@@ -183,7 +188,11 @@ void task_actuator_update(void *parameters)
 					} else if ((true == p_task_actuator_dta->flag) && (EV_ACT_XX_BLINK == p_task_actuator_dta->event))
 					{
 						p_task_actuator_dta->flag = false;
-						p_task_actuator_dta->state = ST_ACT_XX_BLINK_ON;
+						p_task_actuator_dta->state = ST_ACT_XX_BLINK;
+					} else if ((true == p_task_actuator_dta->flag) && (EV_ACT_XX_FAST_BLINK == p_task_actuator_dta->event))
+					{
+						p_task_actuator_dta->flag = false;
+						p_task_actuator_dta->state = ST_ACT_XX_FAST_BLINK;
 					}
 
 					break;
@@ -199,7 +208,7 @@ void task_actuator_update(void *parameters)
 
 					break;
 
-				case ST_ACT_XX_BLINK_ON:
+				case ST_ACT_XX_BLINK:
 
 					if (p_task_actuator_dta->tick == 0)
 					{
@@ -219,9 +228,34 @@ void task_actuator_update(void *parameters)
 						p_task_actuator_dta->tick = 0;
 					}
 
+					if ((true == p_task_actuator_dta->flag) && (EV_ACT_XX_FAST_BLINK == p_task_actuator_dta->event))
+					{
+						p_task_actuator_dta->flag = false;
+						p_task_actuator_dta->state = ST_ACT_XX_FAST_BLINK;
+						p_task_actuator_dta->tick = 0;
+					}
+
 					break;
 
-				case ST_ACT_XX_BLINK_OFF:
+				case ST_ACT_XX_FAST_BLINK:
+
+					if (p_task_actuator_dta->tick == 0)
+					{
+						p_task_actuator_dta->tick = DEL_ACT_XX_FAST_BLI;
+						HAL_GPIO_TogglePin(p_task_actuator_cfg->gpio_port, p_task_actuator_cfg->pin);
+					}
+					else
+					{
+						p_task_actuator_dta->tick--;
+					}
+
+					if ((true == p_task_actuator_dta->flag) && (EV_ACT_XX_OFF == p_task_actuator_dta->event))
+					{
+						p_task_actuator_dta->flag = false;
+						HAL_GPIO_WritePin(p_task_actuator_cfg->gpio_port, p_task_actuator_cfg->pin, p_task_actuator_cfg->act_off);
+						p_task_actuator_dta->state = ST_ACT_XX_OFF;
+						p_task_actuator_dta->tick = 0;
+					}
 
 					break;
 
