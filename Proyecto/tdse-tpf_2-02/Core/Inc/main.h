@@ -82,10 +82,10 @@ void Error_Handler(void);
 #define MFRC522_RST_GPIO_Port GPIOB
 #define MFRC522_CS_Pin GPIO_PIN_13
 #define MFRC522_CS_GPIO_Port GPIOB
-#define MFRC522_SCK_Pin GPIO_PIN_14
-#define MFRC522_SCK_GPIO_Port GPIOB
 #define MFRC522_MOSI_Pin GPIO_PIN_15
 #define MFRC522_MOSI_GPIO_Port GPIOB
+#define MFRC522_SCK_Pin GPIO_PIN_6
+#define MFRC522_SCK_GPIO_Port GPIOC
 #define C3_Pin GPIO_PIN_10
 #define C3_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13

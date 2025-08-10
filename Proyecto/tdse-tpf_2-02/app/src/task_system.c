@@ -485,6 +485,7 @@ void task_system_update(void *parameters)
 							lcd_clear(&lcd1);
 							lcd_pos(&lcd1, 1, 0);
 							lcd_puts(&lcd1, "  CLAVE INCORRECTA");
+							buffer_reset(pwd_buffer, &buffer_idx);
 
 							p_task_system_dta->tick = DEL_WRONG_PWD_WAIT;
 							p_task_system_dta->state = ST_SYS_WAIT;
@@ -551,6 +552,7 @@ void task_system_update(void *parameters)
 								lcd_clear(&lcd1);
 								lcd_pos(&lcd1, 1, 0);
 								lcd_puts(&lcd1, "TARJETA NO ACEPTADA");
+								buffer_reset(pwd_buffer, &buffer_idx);
 
 								p_task_system_dta->tick = DEL_WRONG_PWD_WAIT;
 								p_task_system_dta->state = ST_SYS_WAIT;
