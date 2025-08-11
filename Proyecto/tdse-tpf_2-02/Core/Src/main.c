@@ -128,7 +128,6 @@ int main(void)
 	  /* Application Update */
 	  app_update();
 
-
   }
   /* USER CODE END 3 */
 }

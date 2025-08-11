@@ -57,6 +57,7 @@
 #include "task_system_interface.h"
 #include "task_actuator_attribute.h"
 #include "task_actuator_interface.h"
+#include "memory_handler.h"
 
 /********************** macros and definitions *******************************/
 #define G_TASK_SYS_CNT_INI			0ul
@@ -85,6 +86,7 @@ task_system_dta_t task_system_dta = {
 	.adc_tick = 0,
     .reset_tick = 0,
 	.rfid_tick = 0,
+	.mem_tick = 0,
     .state = ST_SYS_INIT,
     .event = EV_SYS_XX_BTN_IDLE,
     .flag = false,
@@ -107,6 +109,10 @@ uint8_t wrong_tries = 0;
 // Password buffer.
 char pwd_buffer[6] = "xxxxx";
 uint8_t buffer_idx = 0;
+
+// Memory handler data.
+MEM_WriteType_t MEM_WriteType = MEM_NO_WRITE;
+char pwd_to_mem[6];
 
 // Allowed UIDs array.
 const char* allowed_uids[] = {
@@ -390,12 +396,9 @@ void task_system_update(void *parameters)
 							lcd_puts(&lcd1, "C-Opciones");
 
 							#if MEMORY_CONNECTED
-								HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x0000, I2C_MEMADD_SIZE_16BIT, (uint8_t*)"written", 8, HAL_MAX_DELAY);
-								HAL_Delay(10);
-								HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x0008, I2C_MEMADD_SIZE_16BIT, (uint8_t*)pwd_buffer, 6, HAL_MAX_DELAY);
-								HAL_Delay(10);
-								HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, 0x00, 1, HAL_MAX_DELAY);
-								HAL_Delay(10);
+								strcpy(pwd_to_mem, pwd_buffer);
+								MEM_WriteType = MEM_WRITE_PWD;
+								p_task_system_dta->mem_tick = 300;
 							#endif
 
 							memcpy(p_task_system_dta->system_parameters.password, pwd_buffer, 6);
@@ -538,13 +541,10 @@ void task_system_update(void *parameters)
 									DS3231_Get_Time(&hr, &min, &sec);
 									snprintf(time_str, sizeof(time_str), "%02u/%02u/20%02u | %02u:%02u:%02u | %02X%02X%02X%02X", day, mth, year, hr, min, sec, UID[0], UID[1], UID[2], UID[3]);
 
-									HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000F + 64*p_task_system_dta->system_parameters.saved_entries, I2C_MEMADD_SIZE_16BIT, (uint8_t*)time_str, sizeof(time_str), HAL_MAX_DELAY);
-									HAL_Delay(10);
-
 									p_task_system_dta->system_parameters.saved_entries++;
 
-									HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, &p_task_system_dta->system_parameters.saved_entries, 1, HAL_MAX_DELAY);
-									HAL_Delay(10);
+									MEM_WriteType = MEM_WRITE_TIME;
+									p_task_system_dta->mem_tick = 200;
 								#endif
 							}
 							else
@@ -678,13 +678,10 @@ void task_system_update(void *parameters)
 									DS3231_Get_Time(&hr, &min, &sec);
 									snprintf(time_str, sizeof(time_str), "%02u/%02u/20%02u | %02u:%02u:%02u | %02X%02X%02X%02X", day, mth, year, hr, min, sec, UID[0], UID[1], UID[2], UID[3]);
 
-									HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000F + 64*p_task_system_dta->system_parameters.saved_entries, I2C_MEMADD_SIZE_16BIT, (uint8_t*)time_str, sizeof(time_str), HAL_MAX_DELAY);
-									HAL_Delay(10);
-
 									p_task_system_dta->system_parameters.saved_entries++;
 
-									HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, &p_task_system_dta->system_parameters.saved_entries, 1, HAL_MAX_DELAY);
-									HAL_Delay(10);
+									MEM_WriteType = MEM_WRITE_TIME;
+									p_task_system_dta->mem_tick = 200;
 								#endif
 							}
 						}
@@ -786,12 +783,8 @@ void task_system_update(void *parameters)
 
 						else if (strcmp("65535", pwd_buffer) == 0)
 						{
-							HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x0000, I2C_MEMADD_SIZE_16BIT, (uint8_t*)"notinit", 8, HAL_MAX_DELAY);
-							HAL_Delay(10);
-							HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x0008, I2C_MEMADD_SIZE_16BIT, (uint8_t*)"xxxxx", 6, HAL_MAX_DELAY);
-							HAL_Delay(10);
-							HAL_I2C_Mem_Write(&hi2c2, 0xA0, 0x000E, I2C_MEMADD_SIZE_16BIT, 0x00, 1, HAL_MAX_DELAY);
-							HAL_Delay(10);
+							MEM_WriteType = MEM_CLEAR;
+							p_task_system_dta->mem_tick = 300;
 
 							buffer_reset(pwd_buffer, &buffer_idx);
 							lcd_pos(&lcd1, 1, 0);
@@ -1070,6 +1063,17 @@ void task_system_update(void *parameters)
 			default:
 
 				break;
+		}
+
+		// Handle memory.
+		if (p_task_system_dta->mem_tick > 0)
+		{
+			handle_memory(p_task_system_dta->mem_tick, MEM_WriteType, pwd_to_mem, p_task_system_dta->system_parameters.saved_entries, time_str);
+			p_task_system_dta->mem_tick--;
+		}
+		else
+		{
+			MEM_WriteType = MEM_NO_WRITE;
 		}
 	}
 }

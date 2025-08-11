@@ -92,6 +92,7 @@ typedef struct
 	uint32_t			adc_tick;
 	uint32_t			reset_tick;
 	uint32_t			rfid_tick;
+	uint32_t			mem_tick;
 	task_system_st_t	state;
 	task_system_ev_t	event;
 	bool				flag;
