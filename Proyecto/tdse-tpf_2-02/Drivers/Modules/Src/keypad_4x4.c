@@ -17,27 +17,19 @@ char keypad_get_char(void)
 	HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_SET);
 
 	if(!(HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin (C1_GPIO_Port, C1_Pin)));
-		HAL_Delay(4);
 		val_key = keys[0][0];
 	}
 	if(!(HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin)));
-		HAL_Delay(4);
 		val_key = keys[0][1];
 	}
 	if(!(HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin)));
-		HAL_Delay(4);
 		val_key = keys[0][2];
 	}
 	if (!(HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin)));
-		HAL_Delay(4);
 		val_key = keys[0][3];
 	}
 
@@ -47,27 +39,19 @@ char keypad_get_char(void)
 	HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_SET);
 
 	if(!(HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin)));
-		HAL_Delay(4);
 		val_key = keys[1][0];
 	}
 	if(!(HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin)));
-		HAL_Delay(4);
 		val_key = keys[1][1];
 	}
 	if(!(HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin)));
-		HAL_Delay(4);
 		val_key = keys[1][2];
 	}
 	if(!(HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin)));
-		HAL_Delay(4);
 		val_key = keys[1][3];
 	}
 
@@ -77,27 +61,19 @@ char keypad_get_char(void)
 	HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_SET);
 
 	if(!(HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin)));
-		HAL_Delay(4);
 		val_key = keys[2][0];
 	}
 	if(!(HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin)));
-		HAL_Delay(4);
 		val_key = keys[2][1];
 	}
 	if(!(HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin)));
-		HAL_Delay(4);
 		val_key = keys[2][2];
 	}
 	if(!(HAL_GPIO_ReadPin (C4_GPIO_Port, C4_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin)));
-		HAL_Delay(4);
 		val_key = keys[2][3];
 	}
 
@@ -107,27 +83,19 @@ char keypad_get_char(void)
 	HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_RESET);
 
 	if(!(HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C1_GPIO_Port, C1_Pin)));
-		HAL_Delay(4);
 		val_key = keys[3][0];
 	}
 	if(!(HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin))){
-		HAL_Delay(4);
 		while (!(HAL_GPIO_ReadPin(C2_GPIO_Port, C2_Pin)));
-		HAL_Delay(4);
 		val_key = keys[3][1];
 	}
 	if(!(HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C3_GPIO_Port, C3_Pin)));
-		HAL_Delay(4);
 		val_key = keys[3][2];
 	}
 	if(!(HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin))){
-		HAL_Delay(4);
 		while(!(HAL_GPIO_ReadPin(C4_GPIO_Port, C4_Pin)));
-		HAL_Delay(4);
 		val_key = keys[3][3];
 	}
 	return val_key;

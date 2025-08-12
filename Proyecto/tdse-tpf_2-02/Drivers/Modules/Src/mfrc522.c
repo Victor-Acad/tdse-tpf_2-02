@@ -70,13 +70,9 @@ static void MFRC522_Set_Bit(uint8_t addr, uint8_t mask)
 void MFRC522_Reset(void)
 {
 	HAL_GPIO_WritePin(MFRC522_RST_GPIO_Port, MFRC522_RST_Pin, 1);
-    HAL_Delay(1);
     HAL_GPIO_WritePin(MFRC522_RST_GPIO_Port, MFRC522_RST_Pin, 0);
-    HAL_Delay(1);
     HAL_GPIO_WritePin(MFRC522_RST_GPIO_Port, MFRC522_RST_Pin, 1);
-    HAL_Delay(1);
     MFRC522_Wr(COMMANDREG, PCD_RESETPHASE);
-    HAL_Delay(1);
 }
 
 void MFRC522_AntennaOn(void)
